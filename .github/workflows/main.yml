@@ -1,0 +1,55 @@
+name: Build Kernel Apollo - Ultimate Custom Control
+
+on:
+  workflow_dispatch:
+
+env:
+  KERNEL_SOURCE: https://github.com/Nbil260602/android_kernel_xiaomi_sm8250
+  KERNEL_BRANCH: main
+  KERNEL_DEFCONFIG: vendor/apollo_defconfig
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git bc bison build-essential libssl-dev libelf-dev flex
+
+      # 1. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL (Jebol Pembatas /sys)
+      - name: Force Absolute Permissive & Disable Security
+        run: |
+          # Paksa SELinux mati total di core kernel (mengubah logika boolean internal)
+          sed -i 's/bool selinux_enforcing = true;/bool selinux_enforcing = false;/g' security/selinux/hooks.c 2>/dev/null || true
+          sed -i 's/int selinux_enforcing = 1;/int selinux_enforcing = 0;/g' security/selinux/hooks.c 2>/dev/null || true
+          
+          # Matikan deteksi read-only paksaan pada beberapa driver sysfs di defconfig
+          echo "CONFIG_SECURITY_SELINUX=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+          echo "CONFIG_SECURITY_SELINUX_BOOTPARAM=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+          echo "CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+          
+          # Paksa command line kernel untuk permissive mutlak sejak HP booting
+          echo "CONFIG_CMDLINE=\"androidboot.selinux=permissive enforcing=0\"" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+          echo "CONFIG_CMDLINE_FORCE=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+
+      # 2. SUNTIK KERNELSU VERSI TERBARU (Untuk Akses Root & Fitur RW Virtual OverlayFS)
+      - name: Patch Latest KernelSU
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+
+      # 3. PROSES COMPILE KERNEL (Menggunakan Server Cepat GitHub)
+      - name: Build Kernel
+        run: |
+          make ARCH=arm64 O=out ${{ env.KERNEL_DEFCONFIG }}
+          make ARCH=arm64 O=out -j$(nproc)
+          
+      # 4. UNGGAH HASIL JADI (Siap di-download)
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Kernel-Apollo-Bebas-Pembatas
+          path: out/arch/arm64/boot/Image.gz-dtb
