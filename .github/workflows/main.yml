@@ -20,40 +20,40 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git bc bison build-essential libssl-dev libelf-dev flex
 
-      # 1. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL (Jebol Pembatas /sys)
+      # 1. FIX DATA TYPE ERROR (Tambalan untuk masalah compat_uptr_t di file filter.h)
+      - name: Patch Kernel Headers
+        run: |
+          sed -i '1s/^/#include <linux\/compat.h>\n/' include/linux/filter.h
+
+      # 2. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL
       - name: Force Absolute Permissive & Disable Security
         run: |
-          # Paksa SELinux mati total di core kernel (mengubah logika boolean internal)
           sed -i 's/bool selinux_enforcing = true;/bool selinux_enforcing = false;/g' security/selinux/hooks.c 2>/dev/null || true
           sed -i 's/int selinux_enforcing = 1;/int selinux_enforcing = 0;/g' security/selinux/hooks.c 2>/dev/null || true
-
-          # Matikan deteksi read-only paksaan pada beberapa driver sysfs di defconfig
           echo "CONFIG_SECURITY_SELINUX=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_SECURITY_SELINUX_BOOTPARAM=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-
-          # Paksa command line kernel untuk permissive mutlak sejak HP booting
           echo 'CONFIG_CMDLINE="androidboot.selinux=permissive enforcing=0"' >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_CMDLINE_FORCE=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
 
-      # 2. SUNTIK KERNELSU VERSI TERBARU (Untuk Akses Root & Fitur RW Virtual OverlayFS)
+      # 3. SUNTIK KERNELSU VERSI TERBARU
       - name: Patch Latest KernelSU
         run: |
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      # 3. UNDUH ALAT COMPILER (Proton Clang)
+      # 4. UNDUH ALAT COMPILER (Proton Clang)
       - name: Download Toolchain (Proton Clang)
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-      # 4. PROSES COMPILE KERNEL (Menggunakan Server Cepat Github)
+      # 5. PROSES COMPILE KERNEL (Dengan Pengabaian Warning -Wno-error)
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
-          make ARCH=arm64 O=out CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ env.KERNEL_DEFCONFIG }}
-          make ARCH=arm64 O=out -j$(nproc) CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          make ARCH=arm64 O=out CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error" ${{ env.KERNEL_DEFCONFIG }}
+          make ARCH=arm64 O=out -j$(nproc) CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error"
 
-      # 5. UNGGAH HASIL JADI (Siap di-download)
+      # 6. UNGGAH HASIL JADI
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
