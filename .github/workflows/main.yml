@@ -26,14 +26,14 @@ jobs:
           # Paksa SELinux mati total di core kernel (mengubah logika boolean internal)
           sed -i 's/bool selinux_enforcing = true;/bool selinux_enforcing = false;/g' security/selinux/hooks.c 2>/dev/null || true
           sed -i 's/int selinux_enforcing = 1;/int selinux_enforcing = 0;/g' security/selinux/hooks.c 2>/dev/null || true
-          
+
           # Matikan deteksi read-only paksaan pada beberapa driver sysfs di defconfig
           echo "CONFIG_SECURITY_SELINUX=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_SECURITY_SELINUX_BOOTPARAM=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-          
+
           # Paksa command line kernel untuk permissive mutlak sejak HP booting
-          echo "CONFIG_CMDLINE=\"androidboot.selinux=permissive enforcing=0\"" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+          echo 'CONFIG_CMDLINE="androidboot.selinux=permissive enforcing=0"' >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
           echo "CONFIG_CMDLINE_FORCE=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
 
       # 2. SUNTIK KERNELSU VERSI TERBARU (Untuk Akses Root & Fitur RW Virtual OverlayFS)
@@ -41,13 +41,19 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      # 3. PROSES COMPILE KERNEL (Menggunakan Server Cepat GitHub)
+      # 3. UNDUH ALAT COMPILER (Proton Clang)
+      - name: Download Toolchain (Proton Clang)
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+
+      # 4. PROSES COMPILE KERNEL (Menggunakan Server Cepat Github)
       - name: Build Kernel
         run: |
-          make ARCH=arm64 O=out ${{ env.KERNEL_DEFCONFIG }}
-          make ARCH=arm64 O=out -j$(nproc)
-          
-      # 4. UNGGAH HASIL JADI (Siap di-download)
+          export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
+          make ARCH=arm64 O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ env.KERNEL_DEFCONFIG }}
+          make ARCH=arm64 O=out -j$(nproc) CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+
+      # 5. UNGGAH HASIL JADI (Siap di-download)
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
