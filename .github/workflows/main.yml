@@ -20,10 +20,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git bc bison build-essential libssl-dev libelf-dev flex
 
-      # 1. FIX DATA TYPE ERROR (Tambalan untuk masalah compat_uptr_t di file filter.h)
+      # 1. FIX DATA TYPE ERROR (Metode Echo + Cat yang 100% Anti-Gagal)
       - name: Patch Kernel Headers
         run: |
-          sed -i '1s/^/#include <linux\/compat.h>\n/' include/linux/filter.h
+          echo "#include <linux/compat.h>" > temp_filter.h
+          cat include/linux/filter.h >> temp_filter.h
+          mv temp_filter.h include/linux/filter.h
 
       # 2. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL
       - name: Force Absolute Permissive & Disable Security
