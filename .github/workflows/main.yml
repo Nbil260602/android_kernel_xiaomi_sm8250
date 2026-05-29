@@ -10,7 +10,8 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # <-- SOLUSI UTAMA: Menggunakan OS Ubuntu 20.04 agar kompatibel dengan kernel SM8250
+
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
@@ -20,12 +21,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git bc bison build-essential libssl-dev libelf-dev flex
 
-      # 1. FIX DATA TYPE ERROR (Metode Paksa Echo + Cat)
+      # 1. FIX DATA TYPE ERROR (Suntik langsung ke baris pertama)
       - name: Patch Kernel Headers
         run: |
-          echo "#include <linux/compat.h>" > temp_filter.h
-          cat include/linux/filter.h >> temp_filter.h
-          mv temp_filter.h include/linux/filter.h
+          sed -i '1s/^/#include <linux\/compat.h>\n/' include/linux/filter.h
 
       # 2. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL
       - name: Force Absolute Permissive & Disable Security
@@ -48,14 +47,14 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 
-      # 5. PROSES COMPILE KERNEL (Bebas dari bug O=out)
+      # 5. PROSES COMPILE KERNEL (Host compiler bersih tanpa modifikasi)
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
-          make ARCH=arm64 CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error" ${{ env.KERNEL_DEFCONFIG }}
-          make ARCH=arm64 -j$(nproc) CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error"
+          make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error" ${{ env.KERNEL_DEFCONFIG }}
+          make ARCH=arm64 -j$(nproc) CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error"
 
-      # 6. UNGGAH HASIL JADI (Jalur file disesuaikan tanpa out/)
+      # 6. UNGGAH HASIL JADI
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
