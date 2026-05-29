@@ -50,8 +50,8 @@ jobs:
       - name: Build Kernel
         run: |
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
-          make ARCH=arm64 O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ env.KERNEL_DEFCONFIG }}
-          make ARCH=arm64 O=out -j$(nproc) CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          make ARCH=arm64 O=out CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- ${{ env.KERNEL_DEFCONFIG }}
+          make ARCH=arm64 O=out -j$(nproc) CC=clang HOSTCC="gcc -B/usr/bin/" HOSTCXX="g++ -B/usr/bin/" CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
       # 5. UNGGAH HASIL JADI (Siap di-download)
       - name: Upload Artifact
