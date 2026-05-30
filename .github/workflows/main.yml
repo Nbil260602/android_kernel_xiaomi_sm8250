@@ -10,7 +10,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          repository: Nbil260602/android_kernel_xiomi_sm8250
+          repository: LineageOS/android_kernel_xiomi_sm8250:lineage-23.2
           ref: lineage-23.2
           submodules: recursive
 
