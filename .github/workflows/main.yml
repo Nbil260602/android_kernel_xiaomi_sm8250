@@ -1,62 +1,37 @@
-name: Build Kernel Apollo - Ultimate Custom Control
+name: Build KernelSU
 
 on:
   workflow_dispatch:
 
-env:
-  KERNEL_SOURCE: https://github.com/Nbil260602/android_kernel_xiaomi_sm8250
-  KERNEL_BRANCH: main
-  KERNEL_DEFCONFIG: vendor/apollo_defconfig
-
 jobs:
   build:
-    runs-on: ubuntu-20.04 # <-- SOLUSI UTAMA: Menggunakan OS Ubuntu 20.04 agar kompatibel dengan kernel SM8250
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Source
+      - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          repository: android_kernel_xiomi_sm8250
+          ref: lineage-23.2
+          submodules: recursive
 
-      - name: Install Dependencies
+      - name: Setup Toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git bc bison build-essential libssl-dev libelf-dev flex
+          sudo apt-get update && sudo apt-get install -y git bc bison flex libssl-dev gcc-aarch64-linux-gnu
 
-      # 1. FIX DATA TYPE ERROR (Suntik langsung ke baris pertama)
-      - name: Patch Kernel Headers
-        run: |
-          sed -i '1s/^/#include <linux\/compat.h>\n/' include/linux/filter.h
-
-      # 2. HACK TOTAL SELINUX & SISTEM KEAMANAN KERNEL
-      - name: Force Absolute Permissive & Disable Security
-        run: |
-          sed -i 's/bool selinux_enforcing = true;/bool selinux_enforcing = false;/g' security/selinux/hooks.c 2>/dev/null || true
-          sed -i 's/int selinux_enforcing = 1;/int selinux_enforcing = 0;/g' security/selinux/hooks.c 2>/dev/null || true
-          echo "CONFIG_SECURITY_SELINUX=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-          echo "CONFIG_SECURITY_SELINUX_BOOTPARAM=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-          echo "CONFIG_SECURITY_SELINUX_BOOTPARAM_VALUE=0" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-          echo 'CONFIG_CMDLINE="androidboot.selinux=permissive enforcing=0"' >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-          echo "CONFIG_CMDLINE_FORCE=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-
-      # 3. SUNTIK KERNELSU VERSI TERBARU
-      - name: Patch Latest KernelSU
+      - name: Inject KernelSU
         run: |
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
 
-      # 4. UNDUH ALAT COMPILER (Proton Clang)
-      - name: Download Toolchain (Proton Clang)
-        run: |
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
-
-      # 5. PROSES COMPILE KERNEL (Host compiler bersih tanpa modifikasi)
       - name: Build Kernel
         run: |
-          export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
-          make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error" ${{ env.KERNEL_DEFCONFIG }}
-          make ARCH=arm64 -j$(nproc) CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- KCFLAGS="-Wno-error"
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make O=out ARCH=arm64 NAMA_DEFCONFIG_MU_defconfig
+          make -j$(nproc) O=out ARCH=arm64
 
-      # 6. UNGGAH HASIL JADI
-      - name: Upload Artifact
+      - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel-Apollo-Bebas-Pembatas
-          path: arch/arm64/boot/Image.gz-dtb
+          name: Kernel_KSU
+          path: out/arch/arm64/boot/Image.gz
+
