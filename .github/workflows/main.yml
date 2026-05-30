@@ -10,7 +10,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          repository: LineageOS/android_kernel_xiomi_sm8250
+          repository: Nbil260602/android_kernel_xiomi_sm8250
           ref: lineage-23.2
           submodules: recursive
 
@@ -26,7 +26,7 @@ jobs:
         run: |
           export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          make O=out ARCH=arm64 NAMA_DEFCONFIG_MU_defconfig
+          make O=out ARCH=arm64 vendor/kona-perf_defconfig
           make -j$(nproc) O=out ARCH=arm64
 
       - name: Upload Kernel Image
